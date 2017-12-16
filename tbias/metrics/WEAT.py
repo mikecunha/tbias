@@ -4,6 +4,7 @@ from scipy.misc import comb
 import functools
 from itertools import combinations
 from random import shuffle
+import logging
 
 CACHE_SIZE = 2**8  # 256
 
@@ -11,10 +12,11 @@ CACHE_SIZE = 2**8  # 256
 class WEAT(object):
     """Word Embedding Association Test"""
 
-    def __init__(self, model):
+    def __init__(self, model, logger=None):
         # pass in a an embedding as a gensim object
         self.model = model
         self.stopping_early = False
+        self.logger = logger or logging.getLogger(__name__)
 
     @functools.lru_cache(maxsize=CACHE_SIZE)
     def gensim_cosine(self, a, b):
@@ -143,7 +145,7 @@ class WEAT(object):
         if n_combs > max_iters:
             self.stopping_early = True
             self.max_iters = max_iters
-            warn += ''.join(['Warning: the P-Value returned may not be ',
+            warn += ''.join(['The P-Value returned may not be ',
                              'trustworthy because all combinations of ',
                              'target words will not be checked (max_iters',
                              '='+str(max_iters)+' is less than the ',
@@ -153,7 +155,7 @@ class WEAT(object):
         A_LOT_OF_ITERS = 50000  # this takes about 30 sec on dev machine
 
         if max_iters > A_LOT_OF_ITERS:
-            warn += ''.join(['Warning: processing the ',
+            warn += ''.join(['Processing the ',
                              '{:,}'.format(max_iters)+' ',
                              'combinations of target words when ',
                              'calculating the P-Value may take a while.',
@@ -189,21 +191,24 @@ class WEAT(object):
             for _ in range(delta):
                 excl = target_Y.difference(oov_Y).pop()
                 target_Y = target_Y.difference(set([excl]))
-                print('Target sets are unbalanced, excluding:',
-                      excl, 'from target_Y')
+                self.logger.warn(' '.join(['Target sets are unbalanced,',
+                                           'excluding:', str(excl),
+                                           'from target_Y']))
         else:
             delta = len(oov_Y) - len(oov_X)
             for _ in range(delta):
                 excl = target_X.difference(oov_X).pop()
                 target_X = target_X.difference(set([excl]))
-                print('Target sets are unbalanced, excluding:',
-                      excl, 'from target_X')
+                self.logger.warn(' '.join(['Target sets are unbalanced,',
+                                           'excluding:', str(excl),
+                                           'from target_X']))
 
-        print('Warning: target words not in embedding vocabulary are',
-              'being excluded: ', str(oov_X), str(oov_Y))
+        self.logger.warn(' '.join(['Target words not in embedding vocabulary',
+                                   'are', 'being excluded: ', str(oov_X),
+                                   str(oov_Y)]))
         if len(oov_X.union(oov_Y)) > min(len(target_X), len(target_Y)):
-            print('Warning: more than half your target words are',
-                  'out-of-vocabulary and will not be included in the test.')
+            self.logger.info(' '.join(['More than half your target words are',
+                'out-of-vocabulary and will not be included in the test.']))
 
         return target_X.difference(oov_X), target_Y.difference(oov_Y)
 
@@ -223,7 +228,7 @@ class WEAT(object):
         max_iters, warns = self.check_inputs(target_X, target_Y, attr_A,
                                              attr_B, max_iters)
         if warns:
-            print(warns)
+            self.logger.warn(warns)
 
         # Calculate observed test-statistic and effect size
         T_obs, effect = self.permutation_test_stat(target_X, target_Y, attr_A,
@@ -243,7 +248,8 @@ class WEAT(object):
                                                         attr_A, attr_B))
 
             if i+1 == max_iters:
-                # print('{:,} partitions processed.'.format(len(T_sampled)))
+                # self.logger.info('{:,} partitions processed.'.format(
+                #     len(T_sampled)))
                 break
 
         # total observation with statistic >= observed value
