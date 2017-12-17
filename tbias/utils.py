@@ -76,6 +76,10 @@ def CSM(gen_obs, α=0.05, max_n=10000, ε=0.001):
         if gen_obs() == 1:
             s += 1
 
+        # Enforce a bare minimum of iters
+        if n < 499:
+            continue
+
         criteria = calc_criteria(n, α, s)
 
         if criteria <= ε:

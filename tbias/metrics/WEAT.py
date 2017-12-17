@@ -6,6 +6,8 @@ from itertools import combinations
 from random import shuffle
 import logging
 
+from ..utils import CSM
+
 CACHE_SIZE = 2**8  # 256
 
 
@@ -253,10 +255,25 @@ class WEAT(object):
                 break
 
         # total observation with statistic >= observed value
-        n = sum(t >= T_obs for t in T_sampled)
+        S_n = sum(t >= T_obs for t in T_sampled)
+
+        if self.stopping_early:
+            # Use CSM to stop early, here feeding it the sequence that we've
+            # already generated. FIXME - Conduct CSM as we generate each
+            # t_obs in the sequence not after the fact.
+            observations = [t >= T_obs for t in T_sampled]
+            observations.reverse()
+            def gen_obs():
+                o = observations.pop()
+                if o:
+                    return 1
+                else:
+                    return 0
+
+            n, S = CSM(gen_obs, α=0.05, max_n=len(observations), ε=0.001)
 
         # p-value is how often the test statistic was >= observed
         # in a random grouping of the target words
-        p_val = n / len(T_sampled)
+        p_val = S_n / len(T_sampled)
 
         return effect, p_val
