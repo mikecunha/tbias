@@ -47,6 +47,57 @@ def calc_criteria(n, α, S, exact=True):
     return (n+1) * exp(b)
 
 
+def find_interval(α, n, ε, method='naive'):
+    """
+    Find "implied" stopping boundaries for a specific n.
+
+    This implements l_n and u_n as described on the bottom
+    of page 3 in the paper.
+
+    Note* This is expensive to calculate at n > 2500
+    because it's repeatedly calling n_choose_k with large
+    numbers and dependent on exact answers.
+    """
+
+    if method == 'naive':
+        max_k = 0
+        min_k = n
+        for k in range(1,n+1):
+            crit = calc_criteria(n, α, k, exact=True)
+            if crit > ε:
+                max_k = max(max_k, k)
+                min_k = min(min_k, k)
+
+        lower = min_k - 1
+        upper = max_k + 1
+        return lower, upper
+
+    # else use a solver, this is faster but has unreliable
+    # accuracy, I tried a few other solvers over intervals
+    # in scipy.optimize with poor results
+    def calc_min_boundary(k):
+        crit = calc_criteria(n, α, k)
+        if crit > ε:
+            return k
+        else:
+            return n + k
+
+    res = minimize_scalar(calc_min_boundary, bounds=(1,n), method='Bounded')
+    lower = res.x
+
+    def calc_max_boundary(k):
+        crit = calc_criteria(n, α, k)
+        if crit > ε:
+            return 1 / k
+        else:
+            return n + k
+
+    res = minimize_scalar(calc_max_boundary, bounds=(1,n), method='Bounded')
+    upper = res.x
+
+    return lower, upper
+
+
 def CSM(gen_obs, α=0.05, max_n=10000, ε=0.001):
     """
     Confidence Sequence Method
