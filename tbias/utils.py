@@ -56,14 +56,14 @@ def CSM(gen_obs, α=0.05, max_n=10000, ε=0.001):
 
     Inputs
     ======
-    gen_obs: a function that will return a binary value as 
+    gen_obs: a function that will return a binary value as
       part of a sequence. 0 meaning an observed test
       statistic did not meet or exceed the original test
       statistic and 1 meaning an obversed test statistic
       did.
     α: boundary of the significance level you are trying to
       determine which side the estimated p-value falls on.
-    max_n: maximum number of observed test statistics to 
+    max_n: maximum number of observed test statistics to
       collect
     ε: limit on the re-sampling risk, values from the
       paper were in the interval [0.01,0.0001]
