@@ -98,7 +98,7 @@ def find_interval(α, n, ε, method='naive'):
     return lower, upper
 
 
-def CSM(gen_obs, α=0.05, max_n=10000, ε=0.001):
+def CSM(gen_obs, α=0.05, max_n=10000, ε=0.001, args=None):
     """
     Confidence Sequence Method
     As described in https://arxiv.org/abs/1611.01675
@@ -122,28 +122,49 @@ def CSM(gen_obs, α=0.05, max_n=10000, ε=0.001):
 
     for n in range(1,max_n+1):
 
-        if gen_obs() == 1:
-            s += 1
+        if args is not None:
+            if gen_obs(*args) == 1:
+                s += 1
+        else:
+            if gen_obs() == 1:
+                s += 1
 
-        # Enforce a bare minimum of iters
-        if n < 499:
-            continue
-
-        criteria = calc_criteria(n, α, s)
+        criteria = calc_criteria(n, α, s, exact=True)
 
         if criteria <= ε:
-            print('out of boundary at n =', n)
-            print('criteria: ', str(float(criteria)))
-            print('p-value =', s/n)
-            if 0 >= criteria and criteria <= α:
-                print('reject the null')
-            elif α > criteria and criteria <= 1:
-                print('fail to reject the null')
+
+            if n < 2500:
+                # Get the interval we have escaped
+                I_n = find_interval(α=α, n=n, ε=ε)
             else:
-                print('hmmm something not right: ', float(criteria))
+                I_n = (None, None)
+
+            print('out of boundary at n =', n)
+            print('s =', s, '   I_n =', I_n)
+            print('p-value =', s/n)
+            print('criteria =', str(float(criteria)))
+
+            if I_n[0] == None:
+                # Leave it up to user to infer if H_null is rejected
+                p_obs = s/n
+                return p_obs, None
+
+            if s <= I_n[0]:
+                print('reject the null')
+                return s/n, True
+            elif s >= I_n[1]:
+                print('fail to reject the null at α =', α, 'significance level.')
+                return s/n, False
+            else:
+                print('Something went wrong.')
+
             break
 
-        if n == 10000:
+        if n == max_n:
+            # FIXME - return 95% Conf Interval of p-val
+            # Gandy 2009 says that it's the min/max of all/recent
+            # estimates of p_hat
             print('Iterations exhausted, p-val =', s/n)
 
-    return n, s
+    p_obs = s/n
+    return p_obs, None
