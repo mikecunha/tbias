@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 from scipy.special import comb
+from math import log, exp
 
 
 def plot_test(frame, title):
@@ -27,26 +28,23 @@ def plot_test(frame, title):
                           frame.effect_size.iat[i]))
 
 
-def n_choose_k(n, k):
+def n_choose_k(n, k, exact=True):
     # uses gamma function and log space to avoid overflow
-    return comb(n, k, exact=False, repetition=False)
+    return comb(n, k, exact, repetition=False)
 
 
-def calc_criteria(n,α,S):
+def calc_criteria(n, α, S, exact=True):
     """
     The main part of the CSM check for early stopping.
+    This is what's being compared to epsilon at each
+    iteration to check for stopping. Here converted to
+    work in log-space to avoid underflow/overflow.
     """
+    very_large_num = n_choose_k(n, S, exact)
 
-    very_large_num = n_choose_k(n,S)
-    very_small_num = (α**S)*((1-α)**(n-S))
+    b = log(very_large_num) + S*log(α) + (n-S)*log(1-α)
 
-    # avoid underflow
-    if very_small_num == 0:
-        b = 0
-    else:
-        b = very_large_num * very_small_num
-
-    return (n+1) * b
+    return (n+1) * exp(b)
 
 
 def CSM(gen_obs, α=0.05, max_n=10000, ε=0.001):
