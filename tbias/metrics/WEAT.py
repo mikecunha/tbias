@@ -241,8 +241,29 @@ class WEAT(object):
         half = len(target_X)
         assert(len(target_X) == len(target_Y))
 
-        # TODO: there are formulas to stop early and put estimates on the
-        # p-value, this will be necessary for large target lists.
+        if self.stopping_early:
+            # Use CSM to stop early
+            parts = self.partitions_gen(target_X, target_Y)
+            def sample_permutation():
+                """test if a random permutation generates a T bigger than
+                T_obs"""
+                part_n = next(parts)
+                targ_X = part_n[:half]
+                targ_Y = part_n[half:]
+                T_sample = self.permutation_test_stat(targ_X, targ_Y,
+                                                      attr_A, attr_B)
+                if T_sample >= T_obs:
+                    return 1
+                else:
+                    return 0
+
+            # Call CSM here
+            p_obs, reject = CSM(sample_permutation, α=0.05, max_n=max_iters,
+                                ε=0.001)
+
+            return effect, p_obs
+
+        # From here down goes through the full list of possible permutations
         for i, p in enumerate(self.partitions_gen(target_X, target_Y)):
             targ_X = p[:half]
             targ_Y = p[half:]
@@ -256,21 +277,6 @@ class WEAT(object):
 
         # total observation with statistic >= observed value
         S_n = sum(t >= T_obs for t in T_sampled)
-
-        if self.stopping_early:
-            # Use CSM to stop early, here feeding it the sequence that we've
-            # already generated. FIXME - Conduct CSM as we generate each
-            # t_obs in the sequence not after the fact.
-            observations = [t >= T_obs for t in T_sampled]
-            observations.reverse()
-            def gen_obs():
-                o = observations.pop()
-                if o:
-                    return 1
-                else:
-                    return 0
-
-            n, S = CSM(gen_obs, α=0.05, max_n=len(observations), ε=0.001)
 
         # p-value is how often the test statistic was >= observed
         # in a random grouping of the target words
